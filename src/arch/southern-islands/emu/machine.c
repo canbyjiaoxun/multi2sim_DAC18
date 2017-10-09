@@ -31,11 +31,6 @@
 #include "work-group.h"
 #include "work-item.h"
 #include <time.h>
-//xun jiao 11/06: define a bit width constant
-//#define bit_MUL 31;
-//#define bit_ADD 32;
-//#define bit_SQRT 23; 
-
 
 //xun 10/29/14
 FILE *file1;    
@@ -43,20 +38,25 @@ FILE *file2;
 
 FILE *infile_FLTMUL;
 FILE *infile_FLTADD;
+FILE *infile_FLTADD_VOP3;
+FILE *infile_FLTMAC; 
+FILE *infile_FLTMAD; 
 FILE *infile_SQRT;
 FILE *infile_INTADD; 
 FILE *infile_INTMUL;
-
 
 int si_fault_injection_INT_ADD = 0;
 int si_fault_injection_INT_MUL = 0;
 int si_fault_injection_FP_ADD = 0;
 int si_fault_injection_FP_MUL = 0;
+
 int si_data_profile = 0; 
 int si_data_profile_INTADD = 0; 
 int si_data_profile_INTMUL = 0; 
-int si_data_profile_FLTADD = 0; 
-int si_data_profile_FLTMUL = 0; 
+int si_data_profile_FLTADD = 1; 
+int si_data_profile_FLTMUL = 1; 
+int si_data_profile_FLTMAC = 1; 
+int si_data_profile_FLTMAD = 1; 
 int si_data_profile_FLTSQRT = 0; 
 float swapAdd =0.0;
 float swapAddcnt = 0.0; 
@@ -2881,17 +2881,13 @@ void si_isa_V_ADD_F32_impl(struct si_work_item_t *work_item,
 		s0.as_uint = si_isa_read_reg(work_item, INST.src0);
 	s1.as_uint = si_isa_read_vreg(work_item, INST.vsrc1);
 
-//xun jiao 08/16/16: profiling data for Adder if the si_data_profile_FLTADD == 1 
-   if(si_data_profile_FLTADD == 1)
-   {
-       infile_FLTADD = fopen("input_FLTADD.txt", "a+");        
-       si_data_profile_FLTADD ++; 
-   }     
-
-  if(si_data_profile_FLTADD > 0)
-  {
-      fprintf(infile_FLTADD, "%f\t%f\n", s0.as_float, s1.as_float);
-  }
+	//Xun 10/09/17: profiling data for Adder  
+	   if(si_data_profile_FLTADD == 1)
+	   {
+	       infile_FLTADD = fopen("add.txt", "a");        
+	       fprintf(infile_FLTADD, "%f\t%f\n", s0.as_float, s1.as_float);
+	       fclose(infile_FLTADD);
+	   }     
 
 	/* Calculate the sum. */
 	sum.as_float = s0.as_float + s1.as_float;
@@ -3040,15 +3036,12 @@ void si_isa_V_MUL_F32_impl(struct si_work_item_t *work_item,
 		s0.as_uint = si_isa_read_reg(work_item, INST.src0);
 	s1.as_uint = si_isa_read_vreg(work_item, INST.vsrc1);
 
-    if(si_data_profile_FLTMUL == 1)
-    {
-         infile_FLTMUL = fopen("input_FLTMUL.txt", "a+");        
-         si_data_profile_FLTMUL ++;
-    }     
-    if(si_data_profile_FLTMUL > 0)
-    {
-        fprintf(infile_FLTMUL, "%f\t%f\n", s0.as_float, s1.as_float);
-    }
+       if(si_data_profile_FLTMUL == 1)
+       {
+	    infile_FLTMUL = fopen("mul.txt", "a");        
+	    fprintf(infile_FLTMUL, "%f\t%f\n", s0.as_float, s1.as_float);
+	    fclose(infile_FLTMUL);
+       }     
 
 	/* Calculate the product. */
 	product.as_float = s0.as_float * s1.as_float;
@@ -3572,32 +3565,17 @@ void si_isa_V_MAC_F32_impl(struct si_work_item_t *work_item,
 	s1.as_uint = si_isa_read_vreg(work_item, INST.vsrc1);
 	dst.as_uint = si_isa_read_vreg(work_item, INST.vdst);
 
+//Xun 10/09/17: profile FLT_MAC. 
+    if(si_data_profile_FLTMAC == 1)
+    {
+         infile_FLTMAC = fopen("mac.txt", "a");
+         fprintf(infile_FLTMAC, "%f\t%f\t%f\n", s0.as_float, s1.as_float, dst.as_float);
+         fclose(infile_FLTMAC);
+    }
 
-/*xun jiao 11/09:  decompose the MAC into multiply and add respectively  */
+/*Xun 11/09:  decompose the MAC into multiply and add respectively  */
     union si_reg_t tmp_mul;
     tmp_mul.as_float = s0.as_float * s1.as_float;
-
-//xun jiao 08/16/16: profile FLT_MUL. 
-    if(si_data_profile_FLTMUL == 1)
-    {
-         infile_FLTMUL = fopen("input_FLTMUL.txt", "a+");
-         si_data_profile_FLTMUL++; 
-    }
-    if(si_data_profile_FLTMUL > 0)
-    {
-        fprintf(infile_FLTMUL, "%f\t%f\n", s0.as_float, s1.as_float);
-    }
-
-//xun jiao 08/16/16: profile FLT_ADD. 
-    if(si_data_profile_FLTADD == 1)
-    {
-         infile_FLTADD = fopen("input_FLTADD.txt", "a+");        
-         si_data_profile_FLTADD++; 
-    }     
-    if(si_data_profile_FLTADD > 0)
-    {
-        fprintf(infile_FLTADD, "%f\t%f\n", tmp_mul.as_float, dst.as_float);
-    }
 
 /* Xun Jiao 01/18/2017 swap mul bits*/
     if(si_fault_injection_FP_MUL > 0) 
@@ -3605,9 +3583,10 @@ void si_isa_V_MAC_F32_impl(struct si_work_item_t *work_item,
 
     result.as_float = tmp_mul.as_float + dst.as_float;
 
-    /* Xun Jiao 01/18/2017 swap fp_add bits */
+    /* Xun Jiao 01/18/2017 swap add bits */
     if(si_fault_injection_FP_ADD > 0)
         result.as_float = swapBits_float(result.as_float, 0, 0.5);
+
 	/* Write the results. */
 	si_isa_write_vreg(work_item, INST.vdst, result.as_uint);
 
@@ -4365,13 +4344,14 @@ void si_isa_V_ADD_F32_VOP3a_impl(struct si_work_item_t *work_item,
 //xun jiao 08/16/16: profiling data for Adder if the si_data_profile_FLTADD == 1 
    if(si_data_profile_FLTADD == 1)
    {
-       infile_FLTADD = fopen("input_FLTADD.txt", "a+");        
+       printf("Warning: ADD_F32_VOP3 is used\n");
+       infile_FLTADD_VOP3 = fopen("ADD_F32_VOP3.txt", "a");        
        si_data_profile_FLTADD ++; 
    }     
 
   if(si_data_profile_FLTADD > 0)
   {
-      fprintf(infile_FLTADD, "%f\t%f\n", s0.as_float, s1.as_float);
+      fprintf(infile_FLTADD_VOP3, "%f\t%f\n", s0.as_float, s1.as_float);
   }
 
 	/* Calculate the sum. */
@@ -4623,36 +4603,16 @@ void si_isa_V_MAD_F32_impl(struct si_work_item_t *work_item,
 	if (INST.neg & 4)
 		s2.as_float = -s2.as_float;
 
+        //xun jiao 10/09/17: profile FLT_MAD. 
+        if(si_data_profile_FLTMAD == 1)
+        {
+            infile_FLTMAD = fopen("mad.txt", "a");
+            fprintf(infile_FLTMAD, "%f\t%f\t%f\n", s0.as_float, s1.as_float, s2.as_float);
+            fclose(infile_FLTMAD);
+        }
+
 	/* Calculate the result. */
-//	result.as_float = s0.as_float * s1.as_float + s2.as_float;
-
-/*xun jiao 11/16:  decompose the MAD into multiply and add respectively  */
-    union si_reg_t tmp_mul;
-//xun jiao 08/16/16: profile FLT_MUL. 
-    if(si_data_profile_FLTMUL == 1)
-    {
-         infile_FLTMUL = fopen("input_FLTMUL.txt", "a+");
-         si_data_profile_FLTMUL++; 
-    }
-    if(si_data_profile_FLTMUL > 0)
-    {
-        fprintf(infile_FLTMUL, "%f\t%f\n", s0.as_float, s1.as_float);
-    }
-    tmp_mul.as_float = s0.as_float * s1.as_float;
-    if(si_fault_injection_FP_MUL > 0)
-        tmp_mul.as_float = swapBits_FP_MUL(tmp_mul.as_float);
-//xun jiao 08/16/16: profile FLT_ADD. 
-    if(si_data_profile_FLTADD == 1)
-    {
-         infile_FLTADD = fopen("input_FLTADD.txt", "a+");        
-         si_data_profile_FLTADD++; 
-    }     
-    if(si_data_profile_FLTADD > 0)
-    {
-        fprintf(infile_FLTADD, "%f\t%f\n", tmp_mul.as_float, s2.as_float);
-    }
-    result.as_float = tmp_mul.as_float + s2.as_float;
-
+	result.as_float = s0.as_float * s1.as_float + s2.as_float;
 
 	/* Write the results. */
 	si_isa_write_vreg(work_item, INST.vdst, result.as_uint);
