@@ -3074,10 +3074,10 @@ void si_isa_V_ADD_F32_impl(struct si_work_item_t *work_item,
 	union si_reg_t s0;
 	union si_reg_t s1;
 	union si_reg_t sum;
-  int i; 
-  int bit_ADD = 32; 
-  int bit[bit_ADD]; 
-  int err_cnt[bit_ADD];
+        int i; 
+        int bit_ADD = 32; 
+        int bit[bit_ADD]; 
+        int err_cnt[bit_ADD];
 	float accu[bit_ADD]; 
 	float score[bit_ADD];
 
@@ -3090,39 +3090,49 @@ void si_isa_V_ADD_F32_impl(struct si_work_item_t *work_item,
 	s1.as_uint = si_isa_read_vreg(work_item, INST.vsrc1);
 
 	//Xun 10/09/17: profiling data for Adder  
-	   if(si_data_profile_FLTADD == 1)
-	   {
-	       infile_FLTADD = fopen("add.txt", "a");        
-	       fprintf(infile_FLTADD, "%f\t%f\n", s0.as_float, s1.as_float);
-	       fclose(infile_FLTADD);
-	   }     
-      if(USE_ADD_TABLE){
-         int layer = 0;
-         FILE * fp;
-         if(add_table.initialized == 0){
-           loadTable(&add_table, "/home/xujiao/yupei/medium_mac_add_res.txt");
-           add_table.initialized = 1;
-           printf("table initialized\n");
-         }
-         fp = fopen("layer.txt", "r");
-         fscanf(fp, "%d", &layer);
-         fclose(fp);
-         if(findEntry(&add_table, layer, ADD_PRECISION, s0.as_float, s1.as_float, 0,&(sum.as_float)) == 0)
-		if(ADD_ERROR)
-			sum.as_float = add_with_flip_bits(s0.as_float, s1.as_float);
-		else 
- 			/* Calculate the sum. */
- 			sum.as_float = s0.as_float + s1.as_float;
-       }else
-	if(ADD_ERROR)
-		sum.as_float = add_with_flip_bits(s0.as_float, s1.as_float);
-	else 
- 		/* Calculate the sum. */
- 		sum.as_float = s0.as_float + s1.as_float;
-  /* Xun Jiao 01/18/2017 */
-  /* fault injection */
-        if(si_fault_injection_FP_ADD > 0)
-             sum.as_float = swapBits_float(sum.as_float, 0, 0.5);
+	if(si_data_profile_FLTADD == 1)
+	{
+	    infile_FLTADD = fopen("add.txt", "a");        
+	    fprintf(infile_FLTADD, "%f\t%f\n", s0.as_float, s1.as_float);
+	    fclose(infile_FLTADD);
+	}
+
+        //Yupei 11/08/17: use memory table      
+        /* 
+	if(USE_ADD_TABLE)
+        {
+	   int layer = 0;
+	   FILE * fp;
+	   if(add_table.initialized == 0){
+	     loadTable(&add_table, "/home/xujiao/yupei/medium_mac_add_res.txt");
+	     add_table.initialized = 1;
+	     printf("table initialized\n");
+	   }
+	   fp = fopen("layer.txt", "r");
+	   fscanf(fp, "%d", &layer);
+	   fclose(fp);
+	   if(findEntry(&add_table, layer, ADD_PRECISION, s0.as_float, s1.as_float, 0,&(sum.as_float)) == 0)
+		  if(ADD_ERROR)
+			  sum.as_float = add_with_flip_bits(s0.as_float, s1.as_float);
+		  else 
+			  sum.as_float = s0.as_float + s1.as_float;
+	}
+        else
+        {
+	   if(ADD_ERROR)
+	       sum.as_float = add_with_flip_bits(s0.as_float, s1.as_float);
+	   else 
+	       sum.as_float = s0.as_float + s1.as_float;
+	}
+        */
+
+
+	sum.as_float = s0.as_float + s1.as_float;
+
+	/* Xun Jiao 01/18/2017 */
+	/* fault injection */
+	if(si_fault_injection_FP_ADD > 0)
+	    sum.as_float = swapBits_float(sum.as_float, 0, 0.5);
 
 	/* Write the results. */
 	si_isa_write_vreg(work_item, INST.vdst, sum.as_uint);
@@ -3263,38 +3273,49 @@ void si_isa_V_MUL_F32_impl(struct si_work_item_t *work_item,
 		s0.as_uint = si_isa_read_reg(work_item, INST.src0);
 	s1.as_uint = si_isa_read_vreg(work_item, INST.vsrc1);
 
-       if(si_data_profile_FLTMUL == 1)
-       {
-	    infile_FLTMUL = fopen("mul.txt", "a");        
-	    fprintf(infile_FLTMUL, "%f\t%f\n", s0.as_float, s1.as_float);
-	    fclose(infile_FLTMUL);
-       }     
-       if(USE_MUL_TABLE){
-         int layer = 0;
-         FILE * fp;
-         if(mul_table.initialized == 0){
-           loadTable(&mul_table, "/home/xujiao/yupei/medium_mac_mul_res.txt");
-           mul_table.initialized = 1;
-           printf("table initialized\n");
-         }
-         fp = fopen("layer.txt", "r");
-         fscanf(fp, "%d", &layer);
-         fclose(fp);
-         if(findEntry(&mul_table, layer, MUL_PRECISION,s0.as_float, s1.as_float,0,&(product.as_float)) == 0)
-		if(MUL_ERROR)
-			product.as_float = mul_with_flip_bits(s0.as_float, s1.as_float);
-		else
-			/* Calculate the product. */
-   			product.as_float = s0.as_float * s1.as_float;
-       }else
-	if(MUL_ERROR)
-		product.as_float = mul_with_flip_bits(s0.as_float, s1.as_float);
-	else
-	/* Calculate the product. */
-   	product.as_float = s0.as_float * s1.as_float;
-    /* Xun Jiao swap bits */
-    if(si_fault_injection_FP_MUL)
-         product.as_float = swapBits_FP_MUL(product.as_float);
+        // Profile operands 
+	if(si_data_profile_FLTMUL == 1)
+	{
+	     infile_FLTMUL = fopen("mul.txt", "a");        
+	     fprintf(infile_FLTMUL, "%f\t%f\n", s0.as_float, s1.as_float);
+	     fclose(infile_FLTMUL);
+	}     
+
+
+        // Yupei 11/08/17: Use memory table
+        /*
+	if(USE_MUL_TABLE)
+        {
+	   int layer = 0;
+	   FILE * fp;
+	   if(mul_table.initialized == 0){
+	      loadTable(&mul_table, "/home/xujiao/yupei/medium_mac_mul_res.txt");
+	      mul_table.initialized = 1;
+	      printf("table initialized\n");
+	   }
+	   fp = fopen("layer.txt", "r");
+	   fscanf(fp, "%d", &layer);
+	   fclose(fp);
+	   if(findEntry(&mul_table, layer, MUL_PRECISION,s0.as_float, s1.as_float,0,&(product.as_float)) == 0)
+		  if(MUL_ERROR)
+		        product.as_float = mul_with_flip_bits(s0.as_float, s1.as_float);
+		  else
+			product.as_float = s0.as_float * s1.as_float;
+	}
+        else
+        {
+	   if(MUL_ERROR)
+              product.as_float = mul_with_flip_bits(s0.as_float, s1.as_float);
+	   else
+	      product.as_float = s0.as_float * s1.as_float;
+        }
+        */ 
+
+	product.as_float = s0.as_float * s1.as_float;
+
+	/* Xun Jiao swap bits */
+	if(si_fault_injection_FP_MUL)
+	     product.as_float = swapBits_FP_MUL(product.as_float);
 
 	/* Write the results. */
 	si_isa_write_vreg(work_item, INST.vdst, product.as_uint);
@@ -3803,7 +3824,7 @@ void si_isa_V_MAC_F32_impl(struct si_work_item_t *work_item,
 	union si_reg_t dst;
 	union si_reg_t result;
 	
-  /* Load operands from registers or as a literal constant. */
+        /* Load operands from registers or as a literal constant. */
 	if (INST.src0 == 0xFF)
 		s0.as_uint = INST.lit_cnst;
 	else
@@ -3811,89 +3832,107 @@ void si_isa_V_MAC_F32_impl(struct si_work_item_t *work_item,
 	s1.as_uint = si_isa_read_vreg(work_item, INST.vsrc1);
 	dst.as_uint = si_isa_read_vreg(work_item, INST.vdst);
 
-//Xun 10/16/17: profile MUL first. 
-    if(si_data_profile_FLTMAC == 1)
-    {
-         infile_FLTMUL = fopen("mul.txt", "a");
-         fprintf(infile_FLTMUL, "%f\t%f\t\n", s0.as_float, s1.as_float);
-         fclose(infile_FLTMUL);
-    }
-    union si_reg_t tmp_mul;
-    if(USE_MAC_MUL_TABLE){
-      int layer = 0;
-      FILE * fp;
-      if(mul_table.initialized == 0){
-        loadTable(&mul_table, "/home/xujiao/yupei/medium_mac_mul_res.txt");
-        mul_table.initialized = 1;
-        printf("table initialized\n");
-      }
-      fp = fopen("layer.txt", "r");
-      fscanf(fp, "%d", &layer);
-      fclose(fp);
-      if(layer!=cur_layer){
-        cur_layer = layer;
-        fp = fopen("mul_hit.txt","w");
-        fprintf(fp,"%d %d %f\n", mul_hit, mul_total, (float)mul_hit/(float) mul_total);
-        int i = 0;
-        for (i = 0; i<32;i++)
-            fprintf(fp,"%d %d %d\n", mul_cnt_total, error_cnt_mul[VOLTAGE_LEVEL_MUL][i], error_rate_mul[VOLTAGE_LEVEL_MUL][i]);
-        fclose(fp);
-        fp = fopen("add_hit.txt","w");
-        fprintf(fp,"%d %d %f", add_hit, add_total, (float)add_hit/(float) add_total);
-        for (i = 0; i<32;i++)
-            fprintf(fp,"%d %d %d\n", add_cnt_total, error_cnt_add[VOLTAGE_LEVEL_ADD][i], error_rate_add[VOLTAGE_LEVEL_ADD][i]);
-        fclose(fp);
-      }
-      if(findEntry(&mul_table, layer, MUL_PRECISION,s0.as_float, s1.as_float,0,&(tmp_mul.as_float)) == 0)
-    	if(MUL_ERROR)
-		tmp_mul.as_float = mul_with_flip_bits(s0.as_float,s1.as_float);
-	else 
-    		tmp_mul.as_float = s0.as_float * s1.as_float;
-    }else
-
-/*Xun 11/09:  decompose the MAC into multiply and add respectively  */
-    	if(MUL_ERROR)
-		tmp_mul.as_float = mul_with_flip_bits(s0.as_float,s1.as_float);
-	else 
-    		tmp_mul.as_float = s0.as_float * s1.as_float;
-
-//Xun 10/16/17: profile ADD second. 
-    if(si_data_profile_FLTMAC == 1)
-    {
-         infile_FLTADD = fopen("add.txt", "a");
-         fprintf(infile_FLTADD, "%f\t%f\t\n", tmp_mul.as_float, dst.as_float);
-         fclose(infile_FLTADD);
-    }
-
-/* Xun Jiao 01/18/2017 swap mul bits*/
-    if(si_fault_injection_FP_MUL > 0) 
-      tmp_mul.as_float = swapBits_FP_MUL(tmp_mul.as_float);
+        // Xun 10/16/17: profile MUL first. 
+	if(si_data_profile_FLTMAC == 1)
+	{
+	     infile_FLTMUL = fopen("mul.txt", "a");
+	     fprintf(infile_FLTMUL, "%f\t%f\t\n", s0.as_float, s1.as_float);
+	     fclose(infile_FLTMUL);
+	}
         
-      if(USE_MAC_ADD_TABLE){
-        int layer = 0;
-        FILE * fp;
-        if(add_table.initialized == 0){
-          loadTable(&add_table, "/home/xujiao/yupei/medium_mac_add_res.txt");
-          add_table.initialized = 1;
-          printf("table initialized\n");
-        }
-        fp = fopen("layer.txt", "r");
-        fscanf(fp, "%d", &layer);
-        fclose(fp);
-        if(findEntry(&add_table, layer, ADD_PRECISION, tmp_mul.as_float, dst.as_float, 0,&(result.as_float)) == 0)
-		if(ADD_ERROR)
-			result.as_float = add_with_flip_bits(tmp_mul.as_float, dst.as_float);
-		else
-    			result.as_float = tmp_mul.as_float + dst.as_float;
-	}else
-	if(ADD_ERROR)
-		result.as_float = add_with_flip_bits(tmp_mul.as_float, dst.as_float);
-	else
-    		result.as_float = tmp_mul.as_float + dst.as_float;
 
-    /* Xun Jiao 01/18/2017 swap add bits */
-    if(si_fault_injection_FP_ADD > 0)
-        result.as_float = swapBits_float(result.as_float, 0, 0.5);
+        union si_reg_t tmp_mul;    // creat a temp variable for MUL result 
+
+        // Yupei 11/08/17 Use memory table for MUL 
+        /*
+	if(USE_MAC_MUL_TABLE)
+        {
+	   int layer = 0;
+	   FILE * fp;
+	   if(mul_table.initialized == 0){
+	      loadTable(&mul_table, "/home/xujiao/yupei/medium_mac_mul_res.txt");
+	      mul_table.initialized = 1;
+	      printf("table initialized\n");
+	   }
+	   fp = fopen("layer.txt", "r");
+	   fscanf(fp, "%d", &layer);
+	   fclose(fp);
+	   if(layer!=cur_layer){
+	      cur_layer = layer;
+	      fp = fopen("mul_hit.txt","w");
+	      fprintf(fp,"%d %d %f\n", mul_hit, mul_total, (float)mul_hit/(float) mul_total);
+	      int i = 0;
+	      for (i = 0; i<32;i++)
+	     	 fprintf(fp,"%d %d %d\n", mul_cnt_total, error_cnt_mul[VOLTAGE_LEVEL_MUL][i], error_rate_mul[VOLTAGE_LEVEL_MUL][i]);
+	      fclose(fp);
+	      fp = fopen("add_hit.txt","w");
+	      fprintf(fp,"%d %d %f", add_hit, add_total, (float)add_hit/(float) add_total);
+	      for (i = 0; i<32;i++)
+		 fprintf(fp,"%d %d %d\n", add_cnt_total, error_cnt_add[VOLTAGE_LEVEL_ADD][i], error_rate_add[VOLTAGE_LEVEL_ADD][i]);
+	      fclose(fp);
+	   }
+	   if(findEntry(&mul_table, layer, MUL_PRECISION,s0.as_float, s1.as_float,0,&(tmp_mul.as_float)) == 0)
+	      if(MUL_ERROR)
+		    tmp_mul.as_float = mul_with_flip_bits(s0.as_float,s1.as_float);
+	      else 
+		    tmp_mul.as_float = s0.as_float * s1.as_float;
+ 	}
+        else
+        {
+	   if(MUL_ERROR)
+	      tmp_mul.as_float = mul_with_flip_bits(s0.as_float,s1.as_float);
+	   else 
+              tmp_mul.as_float = s0.as_float * s1.as_float;
+        }
+        */
+
+        tmp_mul.as_float = s0.as_float * s1.as_float;
+
+        // Xun 10/16/17: profile ADD second. 
+        if(si_data_profile_FLTMAC == 1)
+        {
+           infile_FLTADD = fopen("add.txt", "a");
+           fprintf(infile_FLTADD, "%f\t%f\t\n", tmp_mul.as_float, dst.as_float);
+           fclose(infile_FLTADD);
+        }
+
+        /* Xun Jiao 01/18/2017 swap mul bits*/
+        if(si_fault_injection_FP_MUL > 0) 
+           tmp_mul.as_float = swapBits_FP_MUL(tmp_mul.as_float);
+        
+        // Yupei 11/08/17 Use memory table for ADD 
+        /*
+        if(USE_MAC_ADD_TABLE){
+	   int layer = 0;
+	   FILE * fp;
+	   if(add_table.initialized == 0){
+	      loadTable(&add_table, "/home/xujiao/yupei/medium_mac_add_res.txt");
+	      add_table.initialized = 1;
+	      printf("table initialized\n");
+           }
+           fp = fopen("layer.txt", "r");
+           fscanf(fp, "%d", &layer);
+           fclose(fp);
+           if(findEntry(&add_table, layer, ADD_PRECISION, tmp_mul.as_float, dst.as_float, 0,&(result.as_float)) == 0)
+	      if(ADD_ERROR)
+	         result.as_float = add_with_flip_bits(tmp_mul.as_float, dst.as_float);
+	      else
+    		 result.as_float = tmp_mul.as_float + dst.as_float;
+	}
+        else
+        {
+	   if(ADD_ERROR)
+	      result.as_float = add_with_flip_bits(tmp_mul.as_float, dst.as_float);
+	   else
+    	      result.as_float = tmp_mul.as_float + dst.as_float;
+        }
+        */
+
+    	result.as_float = tmp_mul.as_float + dst.as_float;
+
+        /* Xun Jiao 01/18/2017 swap add bits */
+        if(si_fault_injection_FP_ADD > 0)
+           result.as_float = swapBits_float(result.as_float, 0, 0.5);
 
 	/* Write the results. */
 	si_isa_write_vreg(work_item, INST.vdst, result.as_uint);
